@@ -1,9 +1,9 @@
 import autobind from 'autobind-decorator';
-import Module from '../../module';
-import serifs from '../../serifs';
+import Module from '@/module';
+import serifs from '@/serifs';
 import { genMaze } from './gen-maze';
 import { renderMaze } from './render-maze';
-import Message from '../../message';
+import Message from '@/message';
 
 export default class extends Module {
 	public readonly name = 'maze';
@@ -58,7 +58,7 @@ export default class extends Module {
 	@autobind
 	private async mentionHook(msg: Message) {
 		if (msg.includes(['迷路'])) {
-			let size = null;
+			let size: string | null = null;
 			if (msg.includes(['接待'])) size = 'veryEasy';
 			if (msg.includes(['簡単', 'かんたん', '易しい', 'やさしい', '小さい', 'ちいさい'])) size = 'easy';
 			if (msg.includes(['難しい', 'むずかしい', '複雑な', '大きい', 'おおきい'])) size = 'hard';
@@ -68,7 +68,7 @@ export default class extends Module {
 			setTimeout(async () => {
 				const file = await this.genMazeFile(Date.now(), size);
 				this.log('Replying...');
-				msg.replyWithFile(serifs.maze.foryou, file);
+				msg.reply(serifs.maze.foryou, { file });
 			}, 3000);
 			return {
 				reaction: 'like'

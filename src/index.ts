@@ -1,14 +1,23 @@
 // AiOS bootstrapper
 
+import 'module-alias/register';
+
+import * as chalk from 'chalk';
+import * as request from 'request-promise-native';
+const promiseRetry = require('promise-retry');
+
 import 藍 from './ai';
 import config from './config';
 import _log from './utils/log';
+const pkg = require('../package.json');
 
 import CoreModule from './modules/core';
+import TalkModule from './modules/talk';
 import BirthdayModule from './modules/birthday';
 import ReversiModule from './modules/reversi';
 import PingModule from './modules/ping';
 import EmojiModule from './modules/emoji';
+import EmojiReactModule from './modules/emoji-react';
 import FortuneModule from './modules/fortune';
 import GuessingGameModule from './modules/guessing-game';
 import KazutoriModule from './modules/kazutori';
@@ -21,10 +30,9 @@ import FollowModule from './modules/follow';
 import ValentineModule from './modules/valentine';
 import MazeModule from './modules/maze';
 import ChartModule from './modules/chart';
-
-import chalk from 'chalk';
-import * as request from 'request-promise-native';
-const promiseRetry = require('promise-retry');
+import SleepReportModule from './modules/sleep-report';
+import NotingModule from './modules/noting';
+import PollModule from './modules/poll';
 
 console.log('   __    ____  _____  ___ ');
 console.log('  /__\\  (_  _)(  _  )/ __)');
@@ -35,7 +43,7 @@ function log(msg: string): void {
 	_log(`[Boot]: ${msg}`);
 }
 
-log(chalk.bold('Ai v1.0'));
+log(chalk.bold(`Ai v${pkg._v}`));
 
 promiseRetry(retry => {
 	log(`Account fetching... ${chalk.gray(config.host)}`);
@@ -56,14 +64,16 @@ promiseRetry(retry => {
 
 	// 藍起動
 	new 藍(account, [
+		new CoreModule(),
 		new EmojiModule(),
+		new EmojiReactModule(),
 		new FortuneModule(),
 		new GuessingGameModule(),
 		new KazutoriModule(),
 		new ReversiModule(),
 		new TimerModule(),
 		new DiceModule(),
-		new CoreModule(),
+		new TalkModule(),
 		new PingModule(),
 		new WelcomeModule(),
 		new ServerModule(),
@@ -73,6 +83,9 @@ promiseRetry(retry => {
 		new KeywordModule(),
 		new MazeModule(),
 		new ChartModule(),
+		new SleepReportModule(),
+		new NotingModule(),
+		new PollModule(),
 	]);
 }).catch(e => {
 	log(chalk.red('Failed to fetch the account'));

@@ -1,16 +1,4 @@
-export const blessing = [
-	'藍吉',
-	'ギガ吉',
-	'メガ吉',
-	'超吉',
-	'大大吉',
-	'大吉',
-	'吉',
-	'中吉',
-	'小吉',
-	'凶',
-	'大凶',
-];
+import * as seedrandom from 'seedrandom';
 
 export const itemPrefixes = [
 	'プラチナ製',
@@ -93,6 +81,16 @@ export const itemPrefixes = [
 	'禁断の',
 	'ホログラフィックな',
 	'油圧式',
+	'辛そうで辛くない少し辛い',
+	'焦げた',
+	'宇宙',
+	'電子',
+	'陽電子',
+	'量子力学的',
+	'シュレディンガーの',
+	'分散型',
+	'卵かけ',
+	'次世代',
 ];
 
 export const items = [
@@ -218,6 +216,40 @@ export const items = [
 	'宇宙',
 	'素粒子',
 	'ごま油',
+	'卵かけご飯',
+	'ダークマター',
+	'ブラックホール',
+	'太陽',
+	'石英ガラス',
+	'ダム',
+	'ウイルス',
+	'細菌',
+	'アーチ式コンクリートダム',
+	'重力式コンクリートダム',
+	'フラッシュバルブ',
+	'ヴィブラスラップ',
+	'オブジェ',
+	'原子力発電所',
+	'原子炉',
+	'エラトステネスの篩',
+	'ブラウン管',
+	'タキオン',
+	'ラッセルのティーポット',
+	'電子機器',
+	'TNT',
+	'ポリゴン',
+	'空気',
+	'RTX 3090',
+	'シャーペンの芯',
+	'ロゼッタストーン',
+	'CapsLockキー',
+	'虚無',
+	'UFO',
+	'NumLockキー',
+	'放射性廃棄物',
+	'火星',
+	'ウラン',
+	'遠心分離機',
 ];
 
 export const and = [
@@ -228,6 +260,25 @@ export const and = [
 	'っぽい',
 	'に見せかけて',
 	'を虐げる',
+	'を侍らせた',
 	'が上に乗った',
 	'のそばにある',
 ];
+
+export function genItem(seedOrRng?: (() => number) | string | number) {
+	const rng = seedOrRng
+		? typeof seedOrRng === 'function'
+			? seedOrRng
+			: seedrandom(seedOrRng.toString())
+		: Math.random;
+
+	let item = '';
+	if (Math.floor(rng() * 5) !== 0) item += itemPrefixes[Math.floor(rng() * itemPrefixes.length)];
+	item += items[Math.floor(rng() * items.length)];
+	if (Math.floor(rng() * 3) === 0) {
+		item += and[Math.floor(rng() * and.length)];
+		if (Math.floor(rng() * 5) !== 0) item += itemPrefixes[Math.floor(rng() * itemPrefixes.length)];
+		item += items[Math.floor(rng() * items.length)];
+	}
+	return item;
+}

@@ -4,24 +4,25 @@ import * as fs from 'fs';
 import autobind from 'autobind-decorator';
 import * as loki from 'lokijs';
 import * as request from 'request-promise-native';
-import chalk from 'chalk';
-import * as uuid from 'uuid/v4';
+import * as chalk from 'chalk';
+import { v4 as uuid } from 'uuid';
 const delay = require('timeout-as-promise');
 
-import config from './config';
-import Module from './module';
-import Message from './message';
-import Friend, { FriendDoc } from './friend';
-import { User } from './misskey/user';
-import Stream from './stream';
-import log from './utils/log';
+import config from '@/config';
+import Module from '@/module';
+import Message from '@/message';
+import Friend, { FriendDoc } from '@/friend';
+import { User } from '@/misskey/user';
+import Stream from '@/stream';
+import log from '@/utils/log';
+const pkg = require('../package.json');
 
 type MentionHook = (msg: Message) => Promise<boolean | HandlerResult>;
 type ContextHook = (msg: Message, data?: any) => Promise<void | HandlerResult>;
 type TimeoutCallback = (data?: any) => void;
 
 export type HandlerResult = {
-	reaction: string;
+	reaction: string | null;
 };
 
 export type InstallerResult = {
@@ -30,10 +31,15 @@ export type InstallerResult = {
 	timeoutCallback?: TimeoutCallback;
 };
 
+export type Meta = {
+	lastWakingAt: number;
+};
+
 /**
  * 藍
  */
 export default class 藍 {
+	public readonly version = pkg._v;
 	public account: User;
 	public connection: Stream;
 	public modules: Module[] = [];
@@ -41,13 +47,16 @@ export default class 藍 {
 	private contextHooks: { [moduleName: string]: ContextHook } = {};
 	private timeoutCallbacks: { [moduleName: string]: TimeoutCallback } = {};
 	public db: loki;
+	public lastSleepedAt: number;
+
+	private meta: loki.Collection<Meta>;
 
 	private contexts: loki.Collection<{
 		isDm: boolean;
 		noteId?: string;
 		userId?: string;
 		module: string;
-		key: string;
+		key: string | null;
 		data?: any;
 	}>;
 
@@ -71,9 +80,11 @@ export default class 藍 {
 		this.account = account;
 		this.modules = modules;
 
-		this.log('Lodaing the memory...');
+		const file = process.env.NODE_ENV === 'test' ? 'test.memory.json' : 'memory.json';
 
-		this.db = new loki('memory.json', {
+		this.log(`Lodaing the memory from ${file}...`);
+
+		this.db = new loki(file, {
 			autoload: true,
 			autosave: true,
 			autosaveInterval: 1000,
@@ -96,6 +107,8 @@ export default class 藍 {
 	@autobind
 	private run() {
 		//#region Init DB
+		this.meta = this.getCollection('meta', {});
+
 		this.contexts = this.getCollection('contexts', {
 			indices: ['key']
 		});
@@ -112,6 +125,9 @@ export default class 藍 {
 			indices: ['module']
 		});
 		//#endregion
+
+		const meta = this.getMeta();
+		this.lastSleepedAt = meta.lastWakingAt;
 
 		// Init stream
 		this.connection = new Stream();
@@ -173,6 +189,8 @@ export default class 藍 {
 		this.crawleTimer();
 		setInterval(this.crawleTimer, 1000);
 
+		setInterval(this.logWaking, 10000);
+
 		this.log(chalk.green.bold('Ai am now running!'));
 	}
 
@@ -201,7 +219,7 @@ export default class 藍 {
 			noteId: msg.replyId
 		});
 
-		let reaction = 'love';
+		let reaction: string | null = 'love';
 
 		//#region
 		// コンテキストがあればコンテキストフック呼び出し
@@ -214,7 +232,7 @@ export default class 藍 {
 				reaction = res.reaction;
 			}
 		} else {
-			let res: boolean | HandlerResult;
+			let res: boolean | HandlerResult | null = null;
 
 			for (const handler of this.mentionHooks) {
 				res = await handler(msg);
@@ -258,6 +276,13 @@ export default class 藍 {
 		}
 	}
 
+	@autobind
+	private logWaking() {
+		this.setMeta({
+			lastWakingAt: Date.now(),
+		});
+	}
+
 	/**
 	 * データベースのコレクションを取得します
 	 */
@@ -275,7 +300,7 @@ export default class 藍 {
 	}
 
 	@autobind
-	public lookupFriend(userId: User['id']): Friend {
+	public lookupFriend(userId: User['id']): Friend | null {
 		const doc = this.friends.findOne({
 			userId: userId
 		});
@@ -346,7 +371,7 @@ export default class 藍 {
 	 * @param data コンテキストに保存するオプションのデータ
 	 */
 	@autobind
-	public subscribeReply(module: Module, key: string, isDm: boolean, id: string, data?: any) {
+	public subscribeReply(module: Module, key: string | null, isDm: boolean, id: string, data?: any) {
 		this.contexts.insertOne(isDm ? {
 			isDm: true,
 			userId: id,
@@ -368,7 +393,7 @@ export default class 藍 {
 	 * @param key コンテキストを識別するためのキー
 	 */
 	@autobind
-	public unsubscribeReply(module: Module, key: string) {
+	public unsubscribeReply(module: Module, key: string | null) {
 		this.contexts.findAndRemove({
 			key: key,
 			module: module.name
@@ -394,5 +419,32 @@ export default class 藍 {
 		});
 
 		this.log(`Timer persisted: ${module.name} ${id} ${delay}ms`);
+	}
+
+	@autobind
+	public getMeta() {
+		const rec = this.meta.findOne();
+
+		if (rec) {
+			return rec;
+		} else {
+			const initial: Meta = {
+				lastWakingAt: Date.now(),
+			};
+
+			this.meta.insertOne(initial);
+			return initial;
+		}
+	}
+
+	@autobind
+	public setMeta(meta: Partial<Meta>) {
+		const rec = this.getMeta();
+
+		for (const [k, v] of Object.entries(meta)) {
+			rec[k] = v;
+		}
+
+		this.meta.update(rec);
 	}
 }

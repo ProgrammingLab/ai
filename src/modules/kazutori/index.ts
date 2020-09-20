@@ -1,18 +1,17 @@
 import autobind from 'autobind-decorator';
 import * as loki from 'lokijs';
-import Module from '../../module';
-import Message from '../../message';
-import serifs from '../../serifs';
-
-type User = {
-	id: string;
-	username: string;
-	host: string;
-};
+import Module from '@/module';
+import Message from '@/message';
+import serifs from '@/serifs';
+import { User } from '@/misskey/user';
 
 type Game = {
 	votes: {
-		user: User;
+		user: {
+			id: string;
+			username: string;
+			host: User['host'];
+		};
 		number: number;
 	}[];
 	isEnded: boolean;
@@ -51,7 +50,9 @@ export default class extends Module {
 		if (recentGame) {
 			// 現在アクティブなゲームがある場合
 			if (!recentGame.isEnded) {
-				msg.reply(serifs.kazutori.alreadyStarted, null, recentGame.postId);
+				msg.reply(serifs.kazutori.alreadyStarted, {
+					renote: recentGame.postId
+				});
 				return true;
 			}
 
@@ -89,6 +90,9 @@ export default class extends Module {
 		const game = this.games.findOne({
 			isEnded: false
 		});
+
+		// 処理の流れ上、実際にnullになることは無さそうだけど一応
+		if (game == null) return;
 
 		// 既に数字を取っていたら
 		if (game.votes.some(x => x.user.id == msg.userId)) return {
@@ -168,14 +172,14 @@ export default class extends Module {
 			return;
 		}
 
-		function acct(user: User): string {
+		function acct(user: Game['votes'][0]['user']): string {
 			return user.host
 				? `@${user.username}@${user.host}`
 				: `@${user.username}`;
 		}
 
 		let results: string[] = [];
-		let winner: User = null;
+		let winner: Game['votes'][0]['user'] | null = null;
 
 		for (let i = 100; i >= 0; i--) {
 			const users = game.votes
@@ -195,8 +199,11 @@ export default class extends Module {
 			}
 		}
 
+		const winnerFriend = winner ? this.ai.lookupFriend(winner.id) : null;
+		const name = winnerFriend ? winnerFriend.name : null;
+
 		const text = results.join('\n') + '\n\n' + (winner
-			? serifs.kazutori.finishWithWinner(acct(winner))
+			? serifs.kazutori.finishWithWinner(acct(winner), name)
 			: serifs.kazutori.finishWithNoWinner);
 
 		this.ai.post({

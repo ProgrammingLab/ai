@@ -6,11 +6,13 @@
  * 切断されてしまうので、別々のプロセスで行うようにします
  */
 
+import 'module-alias/register';
+
 import * as request from 'request-promise-native';
 import Reversi, { Color } from 'misskey-reversi';
-import config from '../../config';
-import serifs from '../../serifs';
-import { User } from '../../misskey/user';
+import config from '@/config';
+import serifs from '@/serifs';
+import { User } from '@/misskey/user';
 
 const db = {};
 
@@ -209,7 +211,7 @@ class Session {
 	 */
 	private onEnded = async (msg: any) =>  {
 		// ストリームから切断
-		process.send({
+		process.send!({
 			type: 'ended'
 		});
 
@@ -406,7 +408,7 @@ class Session {
 		console.timeEnd('think');
 
 		setTimeout(() => {
-			process.send({
+			process.send!({
 				type: 'put',
 				pos
 			});
